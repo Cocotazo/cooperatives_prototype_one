@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:cooperatives_prototype_one/src/models/destination_models.dart';
+import 'package:cooperatives_prototype_one/src/domain/destination_models.dart';
 
 
 PassengersModel passengerModelFromJson(String str) => PassengersModel.fromJson(json.decode(str));

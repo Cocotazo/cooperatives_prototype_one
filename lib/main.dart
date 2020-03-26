@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'src/pages/cooperative_page.dart';
 import 'src/pages/home_page.dart';
-import 'src/pages/login_page.dart';
-import 'src/pages/register_page.dart';
 
 
 void main() => runApp(MyApp());
@@ -19,12 +16,9 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.red,
         primaryColor: Color.fromRGBO(245, 115, 127, 1.0),
       ),
-      initialRoute: 'login',
+      initialRoute: 'home',
       routes: {
-        'login'        : (BuildContext context) => LoginPage(),
         'home'         : (BuildContext context) => HomePage(),
-        'register'     : (BuildContext context) => RegisterPage(),
-        'cooperative' : (BuildContext context) => CooperativePage(),
       },
     );
   }

@@ -1,5 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:cooperatives_prototype_one/src/application/maps_bloc.dart';
+import 'package:cooperatives_prototype_one/src/application/maps_event.dart';
+import 'package:cooperatives_prototype_one/src/application/maps_state.dart';
+import 'package:cooperatives_prototype_one/src/infraestructure/routes_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,30 +18,27 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
 
-  var markers = <MarkerId, Marker>{};
-  Size screenSize;
-  //Completer<GoogleMapController> _controller = Completer();
-  GoogleMapController _controller;
 
-  CameraPosition _position = CameraPosition(
-    target: LatLng(10.45, -73.25),
-    zoom: 13.0
-  );
+  Size screenSize;
+  GoogleMapController _controller;
+  CameraPosition _position;
+  LatLng _coordinates;
+  int _markersIds = 0;
+  MapType _mapType = MapType.normal;
+  bool _myLocationEnabled = true;
+  bool _myLocationButtonEnabled = false;
+
+  final Set<Marker> _markers = Set();
+
+  final Set<Polyline> _lines = Set();
 
   @override
   Widget build(BuildContext context) {
-    screenSize = MediaQuery.of(context).copyWith().size;
+    screenSize = MediaQuery.of(context).size;
+    mapsBloc.sendMapEvent.add(GetPosition());
     return SafeArea(
       child: Scaffold(
-          body: Stack(children:<Widget>[
-            _buildFlutterMap(),
-            Column(
-              children: <Widget>[
-                Expanded(child: Container()),
-                _buildCooperativeList(context),
-              ],
-            )
-          ])
+          body: _buildMap()
       ),
     );
   }
@@ -53,79 +55,72 @@ class _HomePageState extends State<HomePage> {
     _controller.setMapStyle(mapStyle);
   }
 
-  Widget _buildFlutterMap() {
-    _addMarker();
-    return Container(
-        width: double.infinity,
-        height: double.infinity,
-        child: GoogleMap(
-          myLocationEnabled: true,
-          mapType: MapType.normal,
-          initialCameraPosition: _position,
-          markers: Set<Marker>.of(markers.values),
-          onMapCreated: (GoogleMapController controller){
-            _controller = controller;
-            _changeMapMode();
-            //_controller.complete(controller);
-          },
-        )
-    );
-  }
+  Widget _buildMap() {
+    return StreamBuilder(
+      stream: mapsBloc.mapsStream,
+      builder: (BuildContext context, AsyncSnapshot snapshot){
+        if(!snapshot.hasData){
+          return Container(color: Colors.black87, child: Center(child: CircularProgressIndicator()));
+        }
 
-  void _addMarker(){
-    final MarkerId markerId = MarkerId('1235');
+        if(snapshot.data is PositionLoaded){
 
-    final Marker marker = Marker(
-      markerId: markerId,
-      icon: BitmapDescriptor.defaultMarker,
-      onTap: (){
-        print(markers[markerId].position);
+          _position = snapshot.data.position;
+          _coordinates = snapshot.data.coordinates;
+
+          return Container(
+              child: GoogleMap(
+                myLocationEnabled: _myLocationEnabled,
+                myLocationButtonEnabled: _myLocationButtonEnabled,
+                mapType: _mapType,
+                initialCameraPosition: _position,
+                markers: _markers,
+                onMapCreated: (GoogleMapController controller) => _onMapCreated(controller),
+                onLongPress: (position) => _addMarker(position),
+                polylines: _lines,
+              )
+          );
+        }else if(snapshot.data is RouteLoaded){
+          _buildRoute(snapshot.data.points);
+          mapsBloc.sendMapEvent.add(GetPosition());
+        }
+        return Container();
       },
-      position: LatLng(
-        10.45,
-        -73.25
-      )
     );
-    setState(() {
-      markers[markerId] = marker;
-    });
+  }
+  
+  _onMapCreated(GoogleMapController controller){
+    _controller = controller;
+    _changeMapMode();    
   }
 
-  Widget _buildCooperativeList(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(top:20.0),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20.0),
-        color: Colors.white,
-      ),
-      height: screenSize.height*0.4,
-      child: ListView(
-        padding: EdgeInsets.symmetric(horizontal: 10.0),
-        children: <Widget>[
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 10.0),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20.0),
-              color: Colors.white,
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 5.0,
-                ),
-              ]
-            ),
-            child: ListTile(
-              leading: Hero(tag: 'CooperativePresentation', child: Image.asset('assets/cootracesar_logo.jpg', fit: BoxFit.cover,)),
-              title: Text('Cootracesar'),
-              subtitle: Text('Cooperativa de transporte del cesar'),
-              onTap: (){
-                Navigator.pushNamed(context, 'cooperative');
-              },
-            ),
+  _addMarker(LatLng position){
+    mapsBloc.sendMapEvent.add(GetRoute(startRoute: _coordinates, endRoute: position));
+    _markers.add(Marker(
+      markerId: MarkerId(_markersIds.toString()),
+      position: position,
+    ));
+    _markersIds++;
+    /*setState(() {
+
+    });*/
+  }
+
+  _buildRoute(List<Point> points) {
+    points.forEach((p) {
+      _lines.add(
+          Polyline(
+              polylineId: PolylineId('$_markersIds'),
+              color: Colors.red,
+              width: 4,
+              points: [
+                p.startPoint,
+                p.endPoint
+              ],
+              visible: true
           )
-        ],
-      ),
-    );
+      );
+    });
   }
 
   @override
